@@ -30,6 +30,9 @@ local default_options = {
   ["leaf"] = true,
   ["vectorize"] = true,
   ["task-inlines"] = true,
+  ["flow"] = true,
+  ["flow-spmd"] = true,
+  ["flow-spmd-shardsize"] = 1,
 }
 
 local option = {

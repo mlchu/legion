@@ -37,6 +37,10 @@
 #include "realm/cuda/cuda_module.h"
 #endif
 
+#ifdef USE_HSA
+#include "realm/hsa/hsa_module.h"
+#endif
+
 namespace Realm {
 
   Logger log_module("module");

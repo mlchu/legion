@@ -306,6 +306,13 @@ ifeq ($(strip $(USE_CUDA)),1)
 LOW_RUNTIME_SRC += $(LG_RT_DIR)/realm/cuda/cuda_module.cc \
 		   $(LG_RT_DIR)/realm/cuda/cudart_hijack.cc
 endif
+ifeq ($(strip $(USE_HSA)),1)
+HSA             += /opt/hsa
+CC_FLAGS        += -DUSE_HSA
+LOW_RUNTIME_SRC += $(LG_RT_DIR)/realm/hsa/hsa_module.cc
+INC_FLAGS       += -I$(HSA)/include
+LEGION_LD_FLAGS	+= -L$(HSA)/lib -lhsa-runtime64
+endif
 ifeq ($(strip $(USE_GASNET)),1)
 LOW_RUNTIME_SRC += $(LG_RT_DIR)/activemsg.cc
 endif
@@ -360,6 +367,9 @@ MAKE	:= make
 ifndef NVCC
 NVCC	:= $(CUDA)/bin/nvcc
 endif
+ifndef CLOC
+CLOC    := cloc.sh
+endif
 SSH	:= ssh
 SCP	:= scp
 
@@ -371,9 +381,11 @@ ASM_OBJS	:= $(ASM_SRC:.S=.o)
 # Only compile the gpu objects if we need to 
 ifeq ($(strip $(SHARED_LOWLEVEL)),0)
 GEN_GPU_OBJS	:= $(GEN_GPU_SRC:.cu=.o)
+GEN_HSA_BRIG    := $(GEN_HSA_SRC:.cl=.brig)
 GPU_RUNTIME_OBJS:= $(GPU_RUNTIME_SRC:.cu=.o)
 else
 GEN_GPU_OBJS	:=
+GEN_HSA_BRIG    :=
 GPU_RUNTIME_OBJS:=
 endif
 
@@ -382,7 +394,7 @@ ifndef NO_BUILD_RULES
 all: $(OUTFILE)
 
 # If we're using the general low-level runtime we have to link with nvcc
-$(OUTFILE) : $(GEN_OBJS) $(GEN_GPU_OBJS) $(SLIB_LEGION) $(SLIB_REALM) $(SLIB_SHAREDLLR)
+$(OUTFILE) : $(GEN_OBJS) $(GEN_GPU_OBJS) $(SLIB_LEGION) $(SLIB_REALM) $(SLIB_SHAREDLLR) $(GEN_HSA_BRIG)
 	@echo "---> Linking objects into one binary: $(OUTFILE)"
 	$(CXX) -o $(OUTFILE) $(GEN_OBJS) $(GEN_GPU_OBJS) $(LD_FLAGS) $(LEGION_LIBS) $(LEGION_LD_FLAGS) $(GASNET_FLAGS)
 
@@ -417,6 +429,9 @@ $(MAPPER_OBJS) : %.o : %.cc
 
 $(GEN_GPU_OBJS) : %.o : %.cu
 	$(NVCC) -o $@ -c $< $(NVCC_FLAGS) $(INC_FLAGS)
+
+$(GEN_HSA_BRIG) : %.brig : %.cl
+	$(CLOC) -clopts "-I. -I/home-nis/mlchu/ff2/ATMI/include" -opt 2 $<
 
 $(GPU_RUNTIME_OBJS): %.o : %.cu
 	$(NVCC) -o $@ -c $< $(NVCC_FLAGS) $(INC_FLAGS)
